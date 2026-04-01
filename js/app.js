@@ -19,7 +19,7 @@ const App = (() => {
 
     let settings = {
         regio: 'vlaanderen',
-        woningPercentage: 30,
+        kantoorPercentage: 30,
         vennootschap: 'Piggy Bank VOF',
         apiKey: '',
         parseMethod: 'ai',
@@ -87,7 +87,7 @@ const App = (() => {
             totaalKwh: m.totaalKwh || 0,
             wagenKwh: m.wagenKwh || 0,
             cregTarief: m.cregTarief,
-            woningPercentage: settings.woningPercentage,
+            kantoorPercentage: settings.kantoorPercentage,
         });
     }
 
@@ -96,10 +96,18 @@ const App = (() => {
         loadData();
         loadSettings();
         migrateV1Data();
+        recalcAll(); // herbereken alle maanden met nieuwe formule
         setupEventListeners();
         renderDashboard();
         renderCregTabel();
         renderSettings();
+    }
+
+    function recalcAll() {
+        for (const m of Object.values(state.maanden)) {
+            m.berekening = berekenMaand(m);
+        }
+        saveData();
     }
 
     function loadData() {
@@ -273,13 +281,13 @@ const App = (() => {
     }
 
     function renderKpis() {
-        let totaal = 0, openstaand = 0, woning = 0, wagen = 0, wagenKwh = 0;
+        let totaal = 0, openstaand = 0, kantoor = 0, wagen = 0, wagenKwh = 0;
         let completeMaanden = 0, openMaanden = 0;
 
         for (const m of Object.values(state.maanden)) {
             const calc = m.berekening || {};
             totaal += calc.totaalTerugbetaling || 0;
-            woning += calc.woningBedrag || 0;
+            kantoor += calc.kantoorBedrag || 0;
             wagen += calc.wagenBedrag || 0;
             wagenKwh += m.wagenKwh || 0;
             if (calc.totaalTerugbetaling) completeMaanden++;
@@ -293,7 +301,7 @@ const App = (() => {
         document.getElementById('kpiMaanden').textContent = `${completeMaanden} maanden`;
         document.getElementById('kpiOpenstaand').textContent = formatEuro(openstaand);
         document.getElementById('kpiOpenMaanden').textContent = `${openMaanden} onbetaald`;
-        document.getElementById('kpiWoning').textContent = formatEuro(woning);
+        document.getElementById('kpiKantoor').textContent = formatEuro(kantoor);
         document.getElementById('kpiWagen').textContent = formatEuro(wagen);
         document.getElementById('kpiWagenKwh').textContent = `${wagenKwh.toFixed(1)} kWh geladen`;
     }
@@ -315,7 +323,7 @@ const App = (() => {
         emptyState.classList.add('hidden');
         tableWrapper.classList.remove('hidden');
 
-        let totVoorschot = 0, totAfrekening = 0, totKost = 0, totWoning = 0, totWagen = 0, totTerugbetaling = 0;
+        let totVoorschot = 0, totAfrekening = 0, totKost = 0, totKantoor = 0, totWagen = 0, totTerugbetaling = 0;
 
         tbody.innerHTML = maandKeys.map(key => {
             const m = state.maanden[key];
@@ -326,7 +334,7 @@ const App = (() => {
             totVoorschot += m.voorschotBedrag || 0;
             totAfrekening += m.afrekeningBedrag || 0;
             totKost += totaalKost;
-            totWoning += calc.woningBedrag || 0;
+            totKantoor += calc.kantoorBedrag || 0;
             totWagen += calc.wagenBedrag || 0;
             totTerugbetaling += calc.totaalTerugbetaling || 0;
 
@@ -339,13 +347,17 @@ const App = (() => {
                 incompleet: '<span class="badge" style="background:#f0f0f0;color:#999">-</span>',
             };
 
+            const laadsessieBadge = m.wagenKwh !== null && m.wagenKwh > 0
+                ? `<span class="badge badge-success" style="font-size:11px;cursor:pointer" onclick="App.openLaadsessies('${key}')">${m.wagenKwh.toFixed(1)} kWh</span>`
+                : `<span class="badge" style="background:#FFF3CD;color:#856404;font-size:11px;cursor:pointer" onclick="App.openLaadsessies('${key}')">+ Laadsessies</span>`;
+
             const dataBadges = {
-                betaald: '<span class="badge badge-success" style="font-size:11px">Compleet</span>',
-                compleet: '<span class="badge badge-success" style="font-size:11px">Compleet</span>',
-                wacht_laadsessies: `<span class="badge" style="background:#FFF3CD;color:#856404;font-size:11px;cursor:pointer" onclick="App.openLaadsessies('${key}')">+ Laadsessies</span>`,
-                wacht_afrekening: '<span class="badge" style="background:#E8F0FE;color:#1A73E8;font-size:11px">Wacht afrekening</span>',
-                wacht_voorschot: '<span class="badge" style="background:#E8F0FE;color:#1A73E8;font-size:11px">Wacht voorschot</span>',
-                incompleet: '<span class="badge" style="background:#f0f0f0;color:#999;font-size:11px">Incompleet</span>',
+                betaald: laadsessieBadge,
+                compleet: laadsessieBadge,
+                wacht_laadsessies: laadsessieBadge,
+                wacht_afrekening: laadsessieBadge,
+                wacht_voorschot: laadsessieBadge,
+                incompleet: laadsessieBadge,
             };
 
             return `
@@ -355,7 +367,7 @@ const App = (() => {
                     <td class="text-right">${m.afrekeningBedrag !== null ? formatEuro(m.afrekeningBedrag) : '<span style="color:#ccc">-</span>'}</td>
                     <td class="text-right"><strong>${m.voorschotBedrag !== null || m.afrekeningBedrag !== null ? formatEuro(totaalKost) : '<span style="color:#ccc">-</span>'}</strong></td>
                     <td class="text-right">${m.wagenKwh !== null ? m.wagenKwh.toFixed(1) : '<span style="color:#ccc">-</span>'}</td>
-                    <td class="text-right">${calc.woningBedrag ? formatEuro(calc.woningBedrag) : '<span style="color:#ccc">-</span>'}</td>
+                    <td class="text-right">${calc.kantoorBedrag ? formatEuro(calc.kantoorBedrag) : '<span style="color:#ccc">-</span>'}</td>
                     <td class="text-right">${calc.wagenBedrag ? formatEuro(calc.wagenBedrag) : '<span style="color:#ccc">-</span>'}</td>
                     <td class="text-right"><strong>${calc.totaalTerugbetaling ? formatEuro(calc.totaalTerugbetaling) : '<span style="color:#ccc">-</span>'}</strong></td>
                     <td class="text-center">${dataBadges[status]}</td>
@@ -376,7 +388,7 @@ const App = (() => {
                 <td class="text-right">${formatEuro(totAfrekening)}</td>
                 <td class="text-right"><strong>${formatEuro(totKost)}</strong></td>
                 <td class="text-right"></td>
-                <td class="text-right">${formatEuro(totWoning)}</td>
+                <td class="text-right">${formatEuro(totKantoor)}</td>
                 <td class="text-right">${formatEuro(totWagen)}</td>
                 <td class="text-right"><strong>${formatEuro(totTerugbetaling)}</strong></td>
                 <td></td>
@@ -744,13 +756,13 @@ const App = (() => {
                 ${calc.totaalTerugbetaling ? `
                 <div class="calc-divider"></div>
                 <div class="calc-section">
-                    <h3>Woning (${settings.woningPercentage}% vennootschap)</h3>
+                    <h3>Kantoor (${settings.kantoorPercentage}% beroepsmatig gebruik)</h3>
                     <div class="calc-formula">
-                        (${formatEuro(totaalKost)} - ${formatEuro(calc.wagenBedrag)}) &times; ${settings.woningPercentage}% = ${formatEuro(calc.woningBedrag)}
+                        ${formatEuro(totaalKost)} &times; ${settings.kantoorPercentage}% = ${formatEuro(calc.kantoorBedrag)}
                     </div>
                 </div>
                 <div class="calc-section">
-                    <h3>Wagen (CREG ${CregTarieven.getKwartaal(maandKey)})</h3>
+                    <h3>Wagen (CREG ${CregTarieven.getKwartaal(maandKey)}) - uit resterende ${100 - settings.kantoorPercentage}%</h3>
                     <div class="calc-formula">
                         ${(m.wagenKwh || 0).toFixed(3)} kWh &times; ${(m.cregTarief || 0).toFixed(4)} &euro;/kWh = ${formatEuro(calc.wagenBedrag)}
                     </div>
@@ -778,10 +790,9 @@ const App = (() => {
                     <button class="btn btn-primary btn-sm" onclick="App.saveDetailEdits()">
                         Opslaan
                     </button>
-                    ${status === 'wacht_laadsessies' ? `
                     <button class="btn btn-sm" style="background:#FFF3CD;color:#856404;border:1px solid #856404" onclick="App.openLaadsessies('${maandKey}'); App.closeDetailModal();">
-                        Laadsessies uploaden
-                    </button>` : ''}
+                        Laadsessies ${m.wagenKwh !== null && m.wagenKwh > 0 ? 'aanpassen' : 'uploaden'}
+                    </button>
                 </div>
             </div>
         `;
@@ -857,7 +868,7 @@ const App = (() => {
     // ===== Settings =====
     function renderSettings() {
         document.getElementById('settingRegio').value = settings.regio;
-        document.getElementById('settingPercentage').value = settings.woningPercentage;
+        document.getElementById('settingPercentage').value = settings.kantoorPercentage;
         document.getElementById('settingVennootschap').value = settings.vennootschap;
         document.getElementById('settingApiKey').value = settings.apiKey || '';
         document.getElementById('settingParseMethod').value = settings.parseMethod || 'ai';
@@ -865,7 +876,7 @@ const App = (() => {
 
     function handleSaveSettings() {
         settings.regio = document.getElementById('settingRegio').value;
-        settings.woningPercentage = parseInt(document.getElementById('settingPercentage').value) || 30;
+        settings.kantoorPercentage = parseInt(document.getElementById('settingPercentage').value) || 30;
         settings.vennootschap = document.getElementById('settingVennootschap').value || 'Piggy Bank VOF';
         settings.apiKey = document.getElementById('settingApiKey').value.trim();
         settings.parseMethod = document.getElementById('settingParseMethod').value;

@@ -133,7 +133,7 @@ const ExcelParser = (() => {
             totaalVerbruik += m.totaalKwh || 0;
             totaalWagenKwh += m.wagenKwh || 0;
             totaalWoningKwh += calc.woningKwh || 0;
-            totaalWoning += calc.woningBedrag || 0;
+            totaalWoning += calc.kantoorBedrag || 0;
             totaalWagen += calc.wagenBedrag || 0;
             totaalTerugbetaling += calc.totaalTerugbetaling || 0;
 
@@ -144,7 +144,7 @@ const ExcelParser = (() => {
                 m.wagenKwh || 0,
                 calc.woningKwh || 0,
                 m.cregTarief || 0,
-                calc.woningBedrag || 0,
+                calc.kantoorBedrag || 0,
                 calc.wagenBedrag || 0,
                 calc.totaalTerugbetaling || 0,
                 m.betaald ? 'Betaald' : 'Openstaand',
@@ -262,9 +262,8 @@ const ExcelParser = (() => {
             detailData.push(['Woning verbruik:', `${woningKwh.toFixed(3)} kWh`]);
             detailData.push(['CREG tarief:', `EUR ${(m.cregTarief || 0).toFixed(4)}/kWh (${CregTarieven.getKwartaal(m.maand)})`]);
             detailData.push([]);
+            detailData.push(['Kantoor 30%:', `${(m.totaalBedrag || 0).toFixed(2)} x 30% = EUR ${(calc.kantoorBedrag || 0).toFixed(2)}`]);
             detailData.push(['Wagen CREG:', `${(m.wagenKwh || 0).toFixed(3)} x ${(m.cregTarief || 0).toFixed(4)} = EUR ${(calc.wagenBedrag || 0).toFixed(2)}`]);
-            detailData.push(['Woning basis:', `${(m.totaalBedrag || 0).toFixed(2)} - ${(calc.wagenBedrag || 0).toFixed(2)} = EUR ${(calc.woningBasis || 0).toFixed(2)}`]);
-            detailData.push(['Woning 30%:', `${(calc.woningBasis || 0).toFixed(2)} x 30% = EUR ${(calc.woningBedrag || 0).toFixed(2)}`]);
             totaalRows.push(detailData.length);
             detailData.push(['Totaal terug te vorderen vennootschap:', `EUR ${(calc.totaalTerugbetaling || 0).toFixed(2)}`]);
             detailData.push([]);
