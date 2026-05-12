@@ -312,9 +312,9 @@ const ExcelParser = (() => {
     function formatMaandLabel(maand) {
         if (!maand) return '';
         const [year, month] = maand.split('-');
-        const maandNamen = ['', 'Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni',
-            'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'];
-        return `${maandNamen[parseInt(month)]} ${year}`;
+        const maandNamen = ['', 'Jan', 'Feb', 'Mrt', 'Apr', 'Mei', 'Jun',
+            'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
+        return `${maandNamen[parseInt(month)]} ${year.slice(-2)}`;
     }
 
     return { parseLaadsessies, exportOverzicht, formatMaandLabel };

@@ -323,7 +323,7 @@ const App = (() => {
         emptyState.classList.add('hidden');
         tableWrapper.classList.remove('hidden');
 
-        let totVoorschot = 0, totAfrekening = 0, totKost = 0, totKantoor = 0, totWagen = 0, totTerugbetaling = 0;
+        let totVoorschot = 0, totAfrekening = 0, totKost = 0, totKantoor = 0, totWagen = 0, totTerugbetaling = 0, totKwhTotaal = 0, totKwhWoning = 0, totKwhWagen = 0;
 
         tbody.innerHTML = maandKeys.map(key => {
             const m = state.maanden[key];
@@ -334,6 +334,9 @@ const App = (() => {
             totVoorschot += m.voorschotBedrag || 0;
             totAfrekening += m.afrekeningBedrag || 0;
             totKost += totaalKost;
+            totKwhTotaal += m.totaalKwh || 0;
+            totKwhWoning += calc.woningKwh || 0;
+            totKwhWagen += m.wagenKwh || 0;
             totKantoor += calc.kantoorBedrag || 0;
             totWagen += calc.wagenBedrag || 0;
             totTerugbetaling += calc.totaalTerugbetaling || 0;
@@ -348,8 +351,8 @@ const App = (() => {
             };
 
             const laadsessieBadge = m.wagenKwh !== null && m.wagenKwh > 0
-                ? `<span class="badge badge-success" style="font-size:11px;cursor:pointer" onclick="App.openLaadsessies('${key}')">${m.wagenKwh.toFixed(1)} kWh</span>`
-                : `<span class="badge" style="background:#FFF3CD;color:#856404;font-size:11px;cursor:pointer" onclick="App.openLaadsessies('${key}')">+ Laadsessies</span>`;
+                ? `<span class="badge badge-success" style="font-size:11px;cursor:pointer" onclick="App.openLaadsessies('${key}')">Sessies gelezen ✓</span>`
+                : `<span class="badge" style="background:#FFF3CD;color:#856404;font-size:11px;cursor:pointer" onclick="App.openLaadsessies('${key}')">+ Toevoegen</span>`;
 
             const dataBadges = {
                 betaald: laadsessieBadge,
@@ -366,6 +369,8 @@ const App = (() => {
                     <td class="text-right">${m.voorschotBedrag !== null ? formatEuro(m.voorschotBedrag) : '<span style="color:#ccc">-</span>'}</td>
                     <td class="text-right">${m.afrekeningBedrag !== null ? formatEuro(m.afrekeningBedrag) : '<span style="color:#ccc">-</span>'}</td>
                     <td class="text-right"><strong>${m.voorschotBedrag !== null || m.afrekeningBedrag !== null ? formatEuro(totaalKost) : '<span style="color:#ccc">-</span>'}</strong></td>
+                    <td class="text-right">${m.totaalKwh ? m.totaalKwh.toFixed(1) : '<span style="color:#ccc">-</span>'}</td>
+                    <td class="text-right">${calc.woningKwh ? calc.woningKwh.toFixed(1) : '<span style="color:#ccc">-</span>'}</td>
                     <td class="text-right">${m.wagenKwh !== null ? m.wagenKwh.toFixed(1) : '<span style="color:#ccc">-</span>'}</td>
                     <td class="text-right">${calc.kantoorBedrag ? formatEuro(calc.kantoorBedrag) : '<span style="color:#ccc">-</span>'}</td>
                     <td class="text-right">${calc.wagenBedrag ? formatEuro(calc.wagenBedrag) : '<span style="color:#ccc">-</span>'}</td>
@@ -387,7 +392,9 @@ const App = (() => {
                 <td class="text-right">${formatEuro(totVoorschot)}</td>
                 <td class="text-right">${formatEuro(totAfrekening)}</td>
                 <td class="text-right"><strong>${formatEuro(totKost)}</strong></td>
-                <td class="text-right"></td>
+                <td class="text-right">${totKwhTotaal.toFixed(1)}</td>
+                <td class="text-right">${totKwhWoning.toFixed(1)}</td>
+                <td class="text-right">${totKwhWagen.toFixed(1)}</td>
                 <td class="text-right">${formatEuro(totKantoor)}</td>
                 <td class="text-right">${formatEuro(totWagen)}</td>
                 <td class="text-right"><strong>${formatEuro(totTerugbetaling)}</strong></td>
