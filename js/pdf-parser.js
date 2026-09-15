@@ -86,7 +86,7 @@ const PdfParser = (() => {
      * Parse PDF tekst via Claude API (backend proxy).
      */
     async function parseViaAI(text, apiKey) {
-        const response = await fetch('/api/parse-pdf', {
+        const response = await fetch('api/parse-pdf.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text, apiKey }),

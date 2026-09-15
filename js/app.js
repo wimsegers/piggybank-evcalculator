@@ -111,9 +111,9 @@ const App = (() => {
         saveData();
     }
 
-    // ===== Opslag (SQLite via server.py) =====
+    // ===== Opslag (SQLite via api/*.php) =====
     async function loadAll() {
-        const response = await fetch('/api/data');
+        const response = await fetch('api/data.php');
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         state.maanden = data.maanden;
@@ -139,14 +139,14 @@ const App = (() => {
     }
 
     function saveData() {
-        return putJson('/api/data', {
+        return putJson('api/data.php', {
             maanden: state.maanden,
             facturen: state.facturen,
         });
     }
 
     function saveSettings() {
-        return putJson('/api/settings', settings);
+        return putJson('api/settings.php', settings);
     }
 
     // ===== Event Listeners =====
