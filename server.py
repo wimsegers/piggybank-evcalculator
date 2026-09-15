@@ -9,6 +9,8 @@ import sys
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse
 
+import db
+
 try:
     import anthropic
 except ImportError:
@@ -20,6 +22,12 @@ except ImportError:
 class AfrekeningHandler(SimpleHTTPRequestHandler):
     """HTTP handler die static files serveert en API endpoints biedt."""
 
+    def do_GET(self):
+        if urlparse(self.path).path == '/api/data':
+            self.send_json(200, db.load_all())
+        else:
+            super().do_GET()
+
     def do_POST(self):
         parsed = urlparse(self.path)
 
@@ -27,6 +35,30 @@ class AfrekeningHandler(SimpleHTTPRequestHandler):
             self.handle_parse_pdf()
         else:
             self.send_error(404, 'Not Found')
+
+    def do_PUT(self):
+        parsed = urlparse(self.path)
+
+        if parsed.path == '/api/data':
+            self.handle_save(lambda body: db.save_data(body.get('maanden'), body.get('facturen')))
+        elif parsed.path == '/api/settings':
+            self.handle_save(lambda body: db.save_settings(body))
+        else:
+            self.send_error(404, 'Not Found')
+
+    def read_json_body(self):
+        content_length = int(self.headers.get('Content-Length', 0))
+        return json.loads(self.rfile.read(content_length))
+
+    def handle_save(self, opslaan):
+        """Slaat de JSON-body op via de meegegeven db-functie."""
+        try:
+            opslaan(self.read_json_body())
+            self.send_json(200, {'ok': True})
+        except (json.JSONDecodeError, db.OngeldigeData) as e:
+            self.send_json(400, {'error': f'Ongeldige data, niets opgeslagen: {e}'})
+        except Exception as e:
+            self.send_json(500, {'error': f'Opslaan mislukt: {e}'})
 
     def handle_parse_pdf(self):
         """Parse PDF text via Claude API."""
@@ -203,7 +235,7 @@ PDF tekst:
         """Handle CORS preflight."""
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
 
@@ -221,6 +253,8 @@ PDF tekst:
 
 if __name__ == '__main__':
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8765
+    db.init_db()
+    print(f"Database: {db.DB_PATH}")
     server = HTTPServer(('', port), AfrekeningHandler)
     print(f"Server draait op http://localhost:{port}")
     try:

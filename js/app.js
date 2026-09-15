@@ -9,9 +9,6 @@
  * - facturen[]: log van verwerkte facturen (voor referentie)
  */
 const App = (() => {
-    const STORAGE_KEY = 'elektriciteit_data_v2';
-    const SETTINGS_KEY = 'elektriciteit_settings';
-
     let state = {
         maanden: {},   // key = "YYYY-MM", value = maandData
         facturen: [],  // log van verwerkte facturen
@@ -92,10 +89,14 @@ const App = (() => {
     }
 
     // ===== Initialization =====
-    function init() {
-        loadData();
-        loadSettings();
-        migrateV1Data();
+    async function init() {
+        try {
+            await loadAll();
+        } catch (e) {
+            showToast('Kan data niet laden van de server: ' + e.message);
+            console.error(e);
+            return;
+        }
         recalcAll(); // herbereken alle maanden met nieuwe formule
         setupEventListeners();
         renderDashboard();
@@ -110,60 +111,42 @@ const App = (() => {
         saveData();
     }
 
-    function loadData() {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-            const parsed = JSON.parse(stored);
-            state.maanden = parsed.maanden || {};
-            state.facturen = parsed.facturen || [];
+    // ===== Opslag (SQLite via server.py) =====
+    async function loadAll() {
+        const response = await fetch('/api/data');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        state.maanden = data.maanden;
+        state.facturen = data.facturen;
+        settings = { ...settings, ...data.settings };
+    }
+
+    async function putJson(url, body) {
+        try {
+            const response = await fetch(url, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.error || `HTTP ${response.status}`);
+            }
+        } catch (e) {
+            showToast('Opslaan mislukt: ' + e.message);
+            console.error(e);
         }
     }
 
     function saveData() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        return putJson('/api/data', {
             maanden: state.maanden,
             facturen: state.facturen,
-        }));
-    }
-
-    function loadSettings() {
-        const stored = localStorage.getItem(SETTINGS_KEY);
-        if (stored) {
-            settings = { ...settings, ...JSON.parse(stored) };
-        }
+        });
     }
 
     function saveSettings() {
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    }
-
-    // Migrate from old v1 format (array of months) if needed
-    function migrateV1Data() {
-        const oldData = localStorage.getItem('elektriciteit_data');
-        if (!oldData) return;
-        try {
-            const oldMaanden = JSON.parse(oldData);
-            if (!Array.isArray(oldMaanden)) return;
-
-            for (const old of oldMaanden) {
-                if (!old.maand) continue;
-                const m = getMaand(old.maand);
-                m.voorschotBedrag = old.voorschot || null;
-                m.afrekeningBedrag = old.afrekening || null;
-                m.totaalKwh = old.totaalKwh || null;
-                m.wagenKwh = old.wagenKwh || null;
-                m.aantalSessies = old.aantalSessies || 0;
-                m.cregTarief = old.cregTarief || null;
-                m.betaald = old.betaald || false;
-                m.betaalDatum = old.betaalDatum || null;
-                m.berekening = old.berekening || null;
-            }
-            saveData();
-            localStorage.removeItem('elektriciteit_data');
-            console.log('V1 data gemigreerd naar v2');
-        } catch (e) {
-            console.warn('V1 migratie mislukt:', e);
-        }
+        return putJson('/api/settings', settings);
     }
 
     // ===== Event Listeners =====
