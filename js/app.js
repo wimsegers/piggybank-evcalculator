@@ -80,6 +80,7 @@ const App = (() => {
         if (m.wagenKwh === null || m.cregTarief === null) return null;
 
         return Calculator.bereken({
+            maand: m.maand,
             totaalBedrag,
             totaalKwh: m.totaalKwh || 0,
             wagenKwh: m.wagenKwh || 0,
@@ -745,8 +746,9 @@ const App = (() => {
 
                 ${calc.totaalTerugbetaling ? `
                 <div class="calc-divider"></div>
+                ${calc.formule === 'oud' ? `
                 <div class="calc-section">
-                    <h3>Kantoor (${settings.kantoorPercentage}% beroepsmatig gebruik)</h3>
+                    <h3>Kantoor (${settings.kantoorPercentage}% beroepsmatig gebruik) <span class="text-muted" style="font-weight:normal;font-size:11px">- formule vóór ${Calculator.INGANGSDATUM_NIEUWE_FORMULE}</span></h3>
                     <div class="calc-formula">
                         ${formatEuro(totaalKost)} &times; ${settings.kantoorPercentage}% = ${formatEuro(calc.kantoorBedrag)}
                     </div>
@@ -757,6 +759,21 @@ const App = (() => {
                         ${(m.wagenKwh || 0).toFixed(3)} kWh &times; ${(m.cregTarief || 0).toFixed(4)} &euro;/kWh = ${formatEuro(calc.wagenBedrag)}
                     </div>
                 </div>
+                ` : `
+                <div class="calc-section">
+                    <h3>Wagen (CREG ${CregTarieven.getKwartaal(maandKey)}) <span class="text-muted" style="font-weight:normal;font-size:11px">- formule vanaf ${Calculator.INGANGSDATUM_NIEUWE_FORMULE}</span></h3>
+                    <div class="calc-formula">
+                        ${(m.wagenKwh || 0).toFixed(3)} kWh &times; ${(m.cregTarief || 0).toFixed(4)} &euro;/kWh = ${formatEuro(calc.wagenBedrag)}
+                    </div>
+                </div>
+                <div class="calc-section">
+                    <h3>Kantoor (${settings.kantoorPercentage}% van woningverbruik, tegen gemiddelde factuurprijs)</h3>
+                    <div class="calc-formula">
+                        (${(m.totaalKwh || 0).toFixed(1)} − ${(m.wagenKwh || 0).toFixed(3)}) kWh &times; ${settings.kantoorPercentage}% = ${calc.kantoorKwh.toFixed(3)} kWh<br>
+                        ${calc.kantoorKwh.toFixed(3)} kWh &times; ${calc.prijsPerKwh.toFixed(4)} &euro;/kWh (${formatEuro(totaalKost)} &divide; ${(m.totaalKwh || 0).toFixed(1)} kWh) = ${formatEuro(calc.kantoorBedrag)}
+                    </div>
+                </div>
+                `}
                 <div class="calc-divider"></div>
                 <div class="calc-total">
                     <span class="calc-total-label">Totaal terugbetaling</span>
@@ -764,7 +781,7 @@ const App = (() => {
                 </div>
                 ` : `
                 <div class="calc-divider"></div>
-                <p style="color:var(--text-muted); font-style:italic;">Berekening beschikbaar zodra alle data compleet is.</p>
+                <p style="color:var(--text-muted); font-style:italic;">Berekening beschikbaar zodra alle data compleet is.${Calculator.getFormule(maandKey) === 'nieuw' && !m.totaalKwh ? ' Vanaf ' + Calculator.INGANGSDATUM_NIEUWE_FORMULE + ' is ook het totaal verbruik (kWh) nodig.' : ''}</p>
                 `}
 
                 <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center;">
@@ -808,7 +825,7 @@ const App = (() => {
         m.afrekeningBedrag = afrekening !== '' ? parseFloat(afrekening) : null;
         m.totaalKwh = kwh !== '' ? parseFloat(kwh) : null;
 
-        Calculator.berekenMaand(m, settings);
+        m.berekening = berekenMaand(m);
         saveData();
         renderDashboard();
         openDetail(editingMaand); // refresh modal met nieuwe berekening
