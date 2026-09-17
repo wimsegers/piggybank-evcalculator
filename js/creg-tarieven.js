@@ -93,74 +93,19 @@ const CregTarieven = (() => {
     }
 
     /**
-     * Probeer tarieven op te halen van CREG website.
-     * Retourneert een Promise met de opgehaalde tarieven of een fout.
+     * Haal tarieven op via de eigen backend (api/creg.php leest de CREG-website).
+     * Nieuwe kwartalen worden samengevoegd met de bestaande tarieven.
      */
     async function fetchTarieven() {
-        // We proberen via een CORS proxy de CREG pagina op te halen
-        const corsProxies = [
-            'https://api.allorigins.win/raw?url=',
-            'https://corsproxy.io/?',
-        ];
-
-        const targetUrl = 'https://www.creg.be/nl/consumenten/prijzen-en-tarieven/creg-tarief-voor-terugbetaling-thuisladen-bedrijfswagens';
-
-        for (const proxy of corsProxies) {
-            try {
-                const response = await fetch(proxy + encodeURIComponent(targetUrl));
-                if (!response.ok) continue;
-
-                const html = await response.text();
-                return parseCregHtml(html);
-            } catch (e) {
-                console.warn('CORS proxy failed:', proxy, e);
-                continue;
-            }
+        const response = await fetch('api/creg.php');
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error);
         }
 
-        throw new Error('Kan CREG tarieven niet automatisch ophalen. Voer ze handmatig in.');
-    }
-
-    /**
-     * Parse CREG HTML pagina om tarieven te extraheren.
-     */
-    function parseCregHtml(html) {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const tables = doc.querySelectorAll('table');
-
-        const nieuweTarieven = { vlaanderen: {}, brussel: {}, wallonie: {} };
-
-        for (const table of tables) {
-            const rows = table.querySelectorAll('tr');
-            for (const row of rows) {
-                const cells = row.querySelectorAll('td');
-                if (cells.length < 4) continue;
-
-                const kwartaalText = cells[0]?.textContent?.trim();
-                const vlMatch = cells[1]?.textContent?.trim()?.replace(',', '.');
-                const brMatch = cells[2]?.textContent?.trim()?.replace(',', '.');
-                const waMatch = cells[3]?.textContent?.trim()?.replace(',', '.');
-
-                // Parse kwartaal (bv. "Q2/2026" -> "2026-Q2")
-                const qMatch = kwartaalText?.match(/Q(\d)\/(\d{4})/);
-                if (!qMatch) continue;
-
-                const kwartaal = `${qMatch[2]}-Q${qMatch[1]}`;
-                const vlTarief = parseFloat(vlMatch);
-                const brTarief = parseFloat(brMatch);
-                const waTarief = parseFloat(waMatch);
-
-                if (!isNaN(vlTarief)) nieuweTarieven.vlaanderen[kwartaal] = vlTarief / 100;
-                if (!isNaN(brTarief)) nieuweTarieven.brussel[kwartaal] = brTarief / 100;
-                if (!isNaN(waTarief)) nieuweTarieven.wallonie[kwartaal] = waTarief / 100;
-            }
-        }
-
-        // Merge met bestaande tarieven
         const bestaande = getStoredTarieven();
         for (const regio of ['vlaanderen', 'brussel', 'wallonie']) {
-            bestaande[regio] = { ...bestaande[regio], ...nieuweTarieven[regio] };
+            bestaande[regio] = { ...bestaande[regio], ...data[regio] };
         }
         saveTarieven(bestaande);
 
