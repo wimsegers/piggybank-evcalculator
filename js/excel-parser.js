@@ -80,8 +80,9 @@ const ExcelParser = (() => {
      * @param {Array} maanden - Array van maanddata objecten
      * @param {Object} settings - Instellingen (vennootschap naam, etc.)
      */
-    function exportOverzicht(maanden, settings = {}) {
+    function exportOverzicht(maanden, settings) {
         const wb = XLSX.utils.book_new();
+        const pct = settings.kantoorPercentage;
 
         // Kleuren uit de tool (als hex voor Excel)
         const primaryColor = '6C5CE7';   // paars
@@ -111,7 +112,7 @@ const ExcelParser = (() => {
                 'Wagen kWh',
                 'Woning kWh',
                 'CREG Tarief (EUR/kWh)',
-                'Woning 30% (EUR)',
+                `Kantoor ${pct}% (EUR)`,
                 'Wagen CREG (EUR)',
                 'Totaal Terugbetaling (EUR)',
                 'Status',
@@ -179,7 +180,7 @@ const ExcelParser = (() => {
             { wch: 12 }, // Wagen kWh
             { wch: 12 }, // Woning kWh
             { wch: 18 }, // CREG Tarief
-            { wch: 16 }, // Woning 30%
+            { wch: 16 }, // Kantoor
             { wch: 16 }, // Wagen CREG
             { wch: 22 }, // Totaal
             { wch: 12 }, // Status
@@ -240,8 +241,9 @@ const ExcelParser = (() => {
             ['Berekeningsdetail per maand'],
             [],
             ['Formules:'],
-            ['Woning: (Totaal factuurbedrag - Wagen CREG bedrag) x 30%'],
-            ['Wagen: kWh laadsessies x CREG tarief per kwartaal (Vlaanderen)'],
+            [`Kantoor vóór ${Calculator.INGANGSDATUM_NIEUWE_FORMULE}: Totaal factuurbedrag x ${pct}%`],
+            [`Kantoor vanaf ${Calculator.INGANGSDATUM_NIEUWE_FORMULE}: (Totaal kWh - Wagen kWh) x ${pct}% x gemiddelde prijs (Totaal factuurbedrag / Totaal kWh)`],
+            ['Wagen: kWh laadsessies x CREG tarief per kwartaal'],
             [],
         ];
 
@@ -262,7 +264,13 @@ const ExcelParser = (() => {
             detailData.push(['Woning verbruik:', `${woningKwh.toFixed(3)} kWh`]);
             detailData.push(['CREG tarief:', `EUR ${(m.cregTarief || 0).toFixed(4)}/kWh (${CregTarieven.getKwartaal(m.maand)})`]);
             detailData.push([]);
-            detailData.push(['Kantoor 30%:', `${(m.totaalBedrag || 0).toFixed(2)} x 30% = EUR ${(calc.kantoorBedrag || 0).toFixed(2)}`]);
+            if (calc.formule === 'nieuw') {
+                detailData.push([`Kantoor kWh (${pct}% van woning):`, `${woningKwh.toFixed(3)} x ${pct}% = ${calc.kantoorKwh.toFixed(3)} kWh`]);
+                detailData.push(['Gemiddelde prijs:', `${(m.totaalBedrag || 0).toFixed(2)} / ${(m.totaalKwh || 0).toFixed(3)} = EUR ${calc.prijsPerKwh.toFixed(4)}/kWh`]);
+                detailData.push([`Kantoor ${pct}%:`, `${calc.kantoorKwh.toFixed(3)} x ${calc.prijsPerKwh.toFixed(4)} = EUR ${calc.kantoorBedrag.toFixed(2)}`]);
+            } else {
+                detailData.push([`Kantoor ${pct}%:`, `${(m.totaalBedrag || 0).toFixed(2)} x ${pct}% = EUR ${(calc.kantoorBedrag || 0).toFixed(2)}`]);
+            }
             detailData.push(['Wagen CREG:', `${(m.wagenKwh || 0).toFixed(3)} x ${(m.cregTarief || 0).toFixed(4)} = EUR ${(calc.wagenBedrag || 0).toFixed(2)}`]);
             totaalRows.push(detailData.length);
             detailData.push(['Totaal terug te vorderen vennootschap:', `EUR ${(calc.totaalTerugbetaling || 0).toFixed(2)}`]);
